@@ -1,152 +1,189 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import LoadingSpinner from '../components/LoadingSpinner';
+import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { FaSearch, FaFilter } from 'react-icons/fa';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const AllFacilities = () => {
-  const [facilities, setFacilities] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [type, setType] = useState('all');
-  const [sort, setSort] = useState('');
+const AddFacility = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    facilityType: '',
+    imageURL: '',
+    location: '',
+    pricePerHour: '',
+    capacity: '',
+    description: ''
+  });
 
-  const facilityTypes = ['all', 'Football Turf', 'Badminton Court', 'Swimming Lane', 'Tennis Court', 'Basketball Court', 'Cricket Pitch'];
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-  useEffect(() => {
-    fetchFacilities();
-  }, [search, type, sort]);
-
-  const fetchFacilities = async () => {
-    setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    
     try {
-      let url = `${API_URL}/facilities?`;
-      if (search) url += `search=${search}&`;
-      if (type && type !== 'all') url += `type=${type}&`;
-      if (sort) url += `sort=${sort}&`;
+      await axios.post(`${API_URL}/facilities`, {
+        ...formData,
+        pricePerHour: Number(formData.pricePerHour),
+        capacity: Number(formData.capacity),
+        ownerEmail: user.email
+      });
       
-      const { data } = await axios.get(url);
-      setFacilities(data);
+      toast.success('Facility added successfully!');
+      navigate('/manage-facilities');
     } catch (error) {
-      console.error('Error fetching facilities:', error);
+      toast.error(error.response?.data?.message || 'Failed to add facility');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">All Facilities</h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
-          Find and book the perfect sports facility for your needs
-        </p>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Search</label>
-            <div className="relative">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8"
+      >
+        <h1 className="text-3xl font-bold mb-6 text-center">Add New Facility</h1>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">Facility Name *</label>
               <input
                 type="text"
-                placeholder="Search by facility name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input-field pl-10"
+                name="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="e.g., Premier Football Turf"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Facility Type</label>
-            <div className="relative">
-              <FaFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Facility Type *</label>
               <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="input-field pl-10 appearance-none"
+                name="facilityType"
+                required
+                value={formData.facilityType}
+                onChange={handleChange}
+                className="input-field"
               >
-                {facilityTypes.map(t => (
-                  <option key={t} value={t}>{t === 'all' ? 'All Types' : t}</option>
-                ))}
+                <option value="">Select type</option>
+                <option value="Football Turf">Football Turf</option>
+                <option value="Badminton Court">Badminton Court</option>
+                <option value="Swimming Lane">Swimming Lane</option>
+                <option value="Tennis Court">Tennis Court</option>
+                <option value="Basketball Court">Basketball Court</option>
+                <option value="Cricket Pitch">Cricket Pitch</option>
               </select>
             </div>
           </div>
-
+          
           <div>
-            <label className="block text-sm font-medium mb-2">Sort By</label>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
+            <label className="block text-sm font-medium mb-2">Image URL *</label>
+            <input
+              type="url"
+              name="imageURL"
+              required
+              value={formData.imageURL}
+              onChange={handleChange}
               className="input-field"
-            >
-              <option value="">Default</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="popular">Most Popular</option>
-            </select>
+              placeholder="https://example.com/image.jpg"
+            />
+            {formData.imageURL && (
+              <img src={formData.imageURL} alt="Preview" className="mt-2 w-32 h-32 object-cover rounded-lg" />
+            )}
           </div>
-        </div>
-      </div>
-
-      {/* Facilities Grid */}
-      {loading ? (
-        <LoadingSpinner />
-      ) : facilities.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No facilities found</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {facilities.map((facility, index) => (
-            <motion.div
-              key={facility._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.05 }}
-              className="card"
-            >
-              <img
-                src={facility.imageURL}
-                alt={facility.name}
-                className="w-full h-48 object-cover"
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Location *</label>
+            <input
+              type="text"
+              name="location"
+              required
+              value={formData.location}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="Full address"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">Price Per Hour ($) *</label>
+              <input
+                type="number"
+                name="pricePerHour"
+                required
+                min="0"
+                step="1"
+                value={formData.pricePerHour}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="50"
               />
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-bold">{facility.name}</h3>
-                  <span className="text-blue-500 font-bold">${facility.pricePerHour}/hr</span>
-                </div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">
-                  Type: {facility.facilityType}
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-1">
-                  Location: {facility.location}
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
-                  Capacity: {facility.capacity} people
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
-                  {facility.description}
-                </p>
-                <Link
-                  to={`/facility/${facility._id}`}
-                  className="btn-primary w-full text-center inline-block"
-                >
-                  Book Now
-                </Link>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Capacity (People) *</label>
+              <input
+                type="number"
+                name="capacity"
+                required
+                min="1"
+                value={formData.capacity}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="10"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">Description *</label>
+            <textarea
+              name="description"
+              required
+              rows="5"
+              value={formData.description}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="Detailed description of the facility..."
+            />
+          </div>
+          
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-primary flex-1 py-3 disabled:opacity-50"
+            >
+              {submitting ? 'Adding Facility...' : 'Add Facility'}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/manage-facilities')}
+              className="btn-outline px-6 py-3"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </motion.div>
     </div>
   );
 };
 
-export default AllFacilities;
+export default AddFacility;
